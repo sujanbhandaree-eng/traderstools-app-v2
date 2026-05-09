@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique identifier for the user" },
+        "email": { "type": "string", "description": "User's email address" },
+        "displayName": { "type": "string", "description": "User's full name" },
+        "photoURL": { "type": "string", "description": "User's profile picture URL" },
+        "aiUsageCount": { "type": "number", "description": "Number of times user used AI features" },
+        "credits": { "type": "number", "description": "Available credits for AI/Calculations" },
+        "preferredDefaults": {
+          "type": "object",
+          "description": "User's preferred default settings",
+          "properties": {
+            "leverage": { "type": "string" },
+            "riskPercent": { "type": "string" },
+            "lotSize": { "type": "string" },
+            "currency": { "type": "string" },
+            "selectedPair": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp" },
+        "referredBy": { "type": "string", "description": "UID of the user who referred this person" }
+      },
+      "required": ["uid", "email"]
+    },
+    "membership_plan": {
+      "title": "Membership Plan",
+      "description": "Definition of a subscription tier",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "description": { "type": "string" },
+        "features": { 
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "order": { "type": "number" },
+        "isPopular": { "type": "boolean" }
+      },
+      "required": ["id", "name", "price", "features", "order"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User profile document"
+    },
+    "/membership_plans/{planId}": {
+      "schema": "membership_plan",
+      "description": "Subscription tier definitions"
+    }
+  }
+}

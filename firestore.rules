@@ -1,0 +1,152 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && 
+        (request.auth.token.email.lower() == 'sujanbhandaree@gmail.com');
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- User Validation ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) 
+        && data.keys().size() <= 16
+        && data.uid == request.auth.uid 
+        && data.email.lower() == request.auth.token.email.lower()
+        && (data.displayName == null || (data.displayName is string && data.displayName.size() <= 100))
+        && (data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 1000))
+        && (data.aiUsageCount == null || data.aiUsageCount is number)
+        && (data.credits == null || data.credits is number)
+        && (data.preferredDefaults == null || data.preferredDefaults is map)
+        && (data.referredBy == null || (data.referredBy is string && data.referredBy.size() <= 128));
+    }
+
+    // --- Journal Validation ---
+    function isValidJournal(data) {
+      return data.keys().hasAll(['pair', 'type', 'entry', 'stopLoss', 'takeProfit', 'riskAmount', 'positionSizeLots', 'rrRatio', 'createdAt', 'currency', 'balance', 'riskPercent'])
+        && data.pair is string && data.pair.size() <= 50
+        && data.type in ['long', 'short']
+        && data.entry is number
+        && data.stopLoss is number
+        && data.takeProfit is number
+        && data.riskAmount is number
+        && data.positionSizeLots is number
+        && data.rrRatio is string
+        && data.createdAt == request.time
+        && data.currency is string
+        && data.balance is number
+        && data.riskPercent is number
+        && (data.aiAnalysis == null || data.aiAnalysis is map)
+        && (data.status == null || data.status in ['open', 'tp', 'sl', 'closed'])
+        && (data.realizedPnL == null || data.realizedPnL is number);
+    }
+
+    match /users/{userId} {
+      allow list: if isAdmin();
+      allow get: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) 
+        && isValidId(userId)
+        && isValidUser(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if (
+        isOwner(userId)
+        && isValidUser(incoming())
+        && incoming().uid == existing().uid
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'email', 'aiUsageCount', 'preferredDefaults', 'credits'])
+        )
+      ) || (
+        isAdmin()
+        && (incoming().diff(existing()).affectedKeys().hasOnly(['credits']) || incoming().diff(existing()).affectedKeys().hasOnly(['aiUsageCount', 'credits']))
+        && incoming().credits is number
+      ) || (
+        isSignedIn()
+        && !isOwner(userId)
+        && incoming().diff(existing()).affectedKeys().hasOnly(['credits'])
+        && incoming().credits == existing().credits + 200
+      );
+
+      match /journal/{journalId} {
+        allow list, get, read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidId(journalId) && isValidJournal(incoming());
+        allow update: if isOwner(userId)
+          && incoming().createdAt == existing().createdAt
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly(['pair', 'entry', 'stopLoss', 'takeProfit', 'updatedAt', 'status', 'realizedPnL'])
+          );
+        allow delete: if (isOwner(userId) || isAdmin());
+      }
+    }
+
+    // --- Membership Plans ---
+    function isValidPlan(data) {
+      return data.keys().hasAll(['id', 'name', 'price', 'features', 'order'])
+        && data.id is string
+        && data.name is string && data.name.size() <= 100
+        && data.price is number
+        && (data.credits == null || data.credits is number)
+        && data.features is list
+        && data.order is number;
+    }
+
+    match /membership_plans/{planId} {
+      allow read, get, list: if isSignedIn();
+      allow write: if isAdmin() && isValidPlan(incoming());
+    }
+
+    // --- Daily Credits ---
+    function isValidDailyCredit(data) {
+      return data.keys().hasAll(['total'])
+        && data.total is number;
+    }
+
+    match /daily_credits/{dayId} {
+      allow get, list, read: if isAdmin();
+      allow create, update: if isSignedIn() 
+        && isValidDailyCredit(incoming());
+    }
+
+    // --- Asset Stats ---
+    function isValidAssetStat(data) {
+      return data.keys().hasAll(['name', 'count', 'lastUsed'])
+        && data.name is string && data.name.size() <= 50
+        && data.count is number
+        && (data.lastUsed == request.time || data.lastUsed == null);
+    }
+
+    match /asset_stats/{assetId} {
+      allow get, list, read: if isAdmin();
+      allow create, update: if isSignedIn() 
+        && isValidAssetStat(incoming());
+    }
+  }
+}
