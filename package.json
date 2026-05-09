@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-   "start": "node server.js"
+   "start": "vite preview --port 8080 --host 0.0.0.0"
   },
   "dependencies": {
     "@firebase/eslint-plugin-security-rules": "^0.0.2",
