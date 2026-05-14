@@ -51,7 +51,7 @@ import { twMerge } from 'tailwind-merge';
 import { auth, signInWithGoogle, logout, db } from './lib/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, setDoc, getDoc, getDocs, collection, serverTimestamp, increment, updateDoc, addDoc, query, orderBy, deleteDoc, where, limit } from 'firebase/firestore';
-import { GoogleGenAI } from "@google/genai";
+
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   BarChart, Bar, Cell, PieChart, Pie, Legend
