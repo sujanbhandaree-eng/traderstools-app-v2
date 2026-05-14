@@ -3219,6 +3219,23 @@ export default function App() {
       
       const data = await response.json();
       setAiAnalysis(data.analysis);
+
+      // Update credits after successful analysis
+      const userRef = doc(db, 'users', user.uid);
+      const today = new Date().toISOString().split('T')[0];
+      const dailyRef = doc(db, 'daily_credits', today);
+
+      await Promise.all([
+        updateDoc(userRef, {
+          aiUsageCount: increment(1),
+          credits: increment(-1)
+        }),
+        setDoc(dailyRef, { total: increment(1) }, { merge: true })
+      ]);
+
+      setAiUsageCount(prev => prev + 1);
+      setCredits(prev => Math.max(0, prev - 1));
+
     } catch (error) {
       console.error("AI Analysis failed:", error);
       setAiAnalysis("Failed to load AI analysis. Please try again later.");
@@ -3226,34 +3243,6 @@ export default function App() {
       setIsAiLoading(false);
     }
   };
-      
-      const data = JSON.parse(response.text || '{}');
-      setAiAnalysis(data);
-
-      // Increment AI usage counter and decrement credits
-      const userRef = doc(db, 'users', user.uid);
-      const today = new Date().toISOString().split('T')[0];
-      const dailyRef = doc(db, 'daily_credits', today);
-
-      await Promise.all([
-        updateDoc(userRef, { 
-          aiUsageCount: increment(1),
-          credits: increment(-1)
-        }),
-        setDoc(dailyRef, { total: increment(1) }, { merge: true })
-      ]);
-      
-      setAiUsageCount(prev => prev + 1);
-      setCredits(prev => Math.max(0, prev - 1));
-
-    } catch (error) {
-      console.error("AI Analysis failed:", error);
-      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
   const saveDefaults = async () => {
     if (!user) return;
     setIsSavingDefaults(true);
