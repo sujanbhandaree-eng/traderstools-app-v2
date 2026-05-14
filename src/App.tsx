@@ -3192,12 +3192,43 @@ export default function App() {
     new Intl.NumberFormat('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(val);
 
   const runAiAnalysis = async () => {
+    // Keep your existing validation
     if (!results || results.isInvalid || !user) return;
+    
+    // Keep your existing credit check
     if (credits <= 0) {
       alert("Insufficient Credits. Please recharge your balance to continue.");
       setAppView('membership');
       return;
     }
+
+    setIsAiLoading(true);
+    try {
+      // New secure backend call
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pair: selectedPair,
+          entry: entryPrice,
+          sl: stopLoss,
+          tp: takeProfit,
+          isLong: isLong,
+          userId: user.uid // Useful for tracking credits on the server
+        }),
+      });
+
+      if (!response.ok) throw new Error('Analysis failed');
+      
+      const data = await response.json();
+      setAiAnalysis(data.analysis);
+    } catch (error) {
+      console.error("AI Analysis failed:", error);
+      setAiAnalysis("Failed to load AI analysis. Please try again later.");
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
     
     setIsAiLoading(true);
     try {
