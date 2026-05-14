@@ -3192,10 +3192,8 @@ export default function App() {
     new Intl.NumberFormat('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(val);
 
   const runAiAnalysis = async () => {
-    // Keep your existing validation
     if (!results || results.isInvalid || !user) return;
     
-    // Keep your existing credit check
     if (credits <= 0) {
       alert("Insufficient Credits. Please recharge your balance to continue.");
       setAppView('membership');
@@ -3204,7 +3202,6 @@ export default function App() {
 
     setIsAiLoading(true);
     try {
-      // New secure backend call
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3214,7 +3211,7 @@ export default function App() {
           sl: stopLoss,
           tp: takeProfit,
           isLong: isLong,
-          userId: user.uid // Useful for tracking credits on the server
+          userId: user.uid
         }),
       });
 
@@ -3229,23 +3226,6 @@ export default function App() {
       setIsAiLoading(false);
     }
   };
-    
-    setIsAiLoading(true);
-    try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `As a professional trading analyst, evaluate this ${tradeType} setup:
-          Entry: ${entryPrice}
-          Stop Loss: ${stopLoss}
-          Take Profit: ${takeProfit}
-          R:R Ratio: ${results.rrRatio}
-          
-          Provide a success probability (0-100) and brief technical reasoning.
-          Return ONLY valid JSON: {"probability": number, "reasoning": "string"}`,
-        config: {
-          responseMimeType: "application/json"
-        }
-      });
       
       const data = JSON.parse(response.text || '{}');
       setAiAnalysis(data);
