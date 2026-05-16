@@ -3192,6 +3192,7 @@ export default function App() {
     new Intl.NumberFormat('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(val);
 
   const runAiAnalysis = async () => {
+    const isLong = true;
     if (!results || results.isInvalid || !user) return;
     
     if (credits <= 0) {
