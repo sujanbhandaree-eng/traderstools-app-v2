@@ -3204,10 +3204,7 @@ export default function App() {
   setIsAiLoading(true);
   try {
     // 1. Get your secure key from your Vite environment configuration
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("API Key is missing from frontend configuration.");
-    }
+    const apiKey = "AIzaSyB0bqYK8_ReWDgCRCrsNBf463zhj17CG74";
 
     // 2. Draft a precise context prompt using your live form fields
     const promptText = `Analyze this trading setup. Pair: ${selectedPair}, Entry: ${entryPrice}, Stop Loss: ${stopLoss}, Take Profit: ${takeProfit}, Direction: ${isLong ? 'Long' : 'Short'}. Provide a brief structural market logic reasoning.`;
@@ -3222,10 +3219,10 @@ export default function App() {
     });
 
     if (!response.ok) throw new Error(`Google AI Studio request failed with status: ${response.status}`);
-    
+
     const data = await response.json();
     const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No reasoning returned from AI.";
-    
+
     // 4. Populate your UI state with Gemini's response text
     setAiAnalysis(aiText);
 
