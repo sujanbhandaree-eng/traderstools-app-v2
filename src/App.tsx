@@ -3192,58 +3192,66 @@ export default function App() {
     new Intl.NumberFormat('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(val);
 
   const runAiAnalysis = async () => {
-    const isLong = true;
-    if (!results || results.isInvalid || !user) return;
+  const isLong = true;
+  if (!results || results.isInvalid || !user) return;
+  
+  if (credits <= 0) {
+    alert("Insufficient Credits. Please recharge your balance to continue.");
+    setAppView('membership');
+    return;
+  }
+
+  setIsAiLoading(true);
+  try {
+    // 1. Get your secure key from your Vite environment configuration
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("API Key is missing from frontend configuration.");
+    }
+
+    // 2. Draft a precise context prompt using your live form fields
+    const promptText = `Analyze this trading setup. Pair: ${selectedPair}, Entry: ${entryPrice}, Stop Loss: ${stopLoss}, Take Profit: ${takeProfit}, Direction: ${isLong ? 'Long' : 'Short'}. Provide a brief structural market logic reasoning.`;
+
+    // 3. Talk directly to Google AI Studio instead of the broken local backend path
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }]
+      })
+    });
+
+    if (!response.ok) throw new Error(`Google AI Studio request failed with status: ${response.status}`);
     
-    if (credits <= 0) {
-      alert("Insufficient Credits. Please recharge your balance to continue.");
-      setAppView('membership');
-      return;
-    }
+    const data = await response.json();
+    const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No reasoning returned from AI.";
+    
+    // 4. Populate your UI state with Gemini's response text
+    setAiAnalysis(aiText);
 
-    setIsAiLoading(true);
-    try {
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pair: selectedPair,
-          entry: entryPrice,
-          sl: stopLoss,
-          tp: takeProfit,
-          isLong: isLong,
-          userId: user.uid
-        }),
-      });
+    // 5. Keep your existing working database credit updates untouched!
+    const userRef = doc(db, 'users', user.uid);
+    const today = new Date().toISOString().split('T')[0];
+    const dailyRef = doc(db, 'daily_credits', today);
 
-      if (!response.ok) throw new Error('Analysis failed');
-      
-      const data = await response.json();
-      setAiAnalysis(data.analysis);
+    await Promise.all([
+      updateDoc(userRef, {
+        aiUsageCount: increment(1),
+        credits: increment(-1)
+      }),
+      setDoc(dailyRef, { total: increment(1) }, { merge: true })
+    ]);
 
-      // Update credits after successful analysis
-      const userRef = doc(db, 'users', user.uid);
-      const today = new Date().toISOString().split('T')[0];
-      const dailyRef = doc(db, 'daily_credits', today);
+    setAiUsageCount(prev => prev + 1);
+    setCredits(prev => Math.max(0, prev - 1));
 
-      await Promise.all([
-        updateDoc(userRef, {
-          aiUsageCount: increment(1),
-          credits: increment(-1)
-        }),
-        setDoc(dailyRef, { total: increment(1) }, { merge: true })
-      ]);
-
-      setAiUsageCount(prev => prev + 1);
-      setCredits(prev => Math.max(0, prev - 1));
-
-    } catch (error) {
-      console.error("AI Analysis failed:", error);
-      setAiAnalysis("Failed to load AI analysis. Please try again later.");
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
+  } catch (error) {
+    console.error("AI Analysis failed:", error);
+    setAiAnalysis("Failed to load AI analysis. Please try again later.");
+  } finally {
+    setIsAiLoading(false);
+  }
+};
   const saveDefaults = async () => {
     if (!user) return;
     setIsSavingDefaults(true);
