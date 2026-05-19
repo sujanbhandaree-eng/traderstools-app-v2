@@ -3215,17 +3215,13 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: promptText }] }]
-      })
-    });
-
+      });
     if (!response.ok) throw new Error(`Google AI Studio request failed with status: ${response.status}`);
-
     const data = await response.json();
     const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No reasoning returned from AI.";
 
     // 4. Populate your UI state with Gemini's response text
     setAiAnalysis(aiText);
-
     // 5. Keep your existing working database credit updates untouched!
     const userRef = doc(db, 'users', user.uid);
     const today = new Date().toISOString().split('T')[0];
