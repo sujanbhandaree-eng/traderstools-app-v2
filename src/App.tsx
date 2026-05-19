@@ -3202,23 +3202,34 @@ export default function App() {
   }
 
   setIsAiLoading(true);
-  try {
-    // 1. Get your secure key from your Vite environment configuration
+try {
+    // 1. Setup your secure API key
     const apiKey = "AIzaSyB0bqYK8_ReWDgCRCrsNBf463zhj17CG74";
 
-    // 2. Draft a precise context prompt using your live form fields
-    const promptText = `Analyze this trading setup. Pair: ${selectedPair}, Entry: ${entryPrice}, Stop Loss: ${stopLoss}, Take Profit: ${takeProfit}, Direction: ${isLong ? 'Long' : 'Short'}. Provide a brief structural market logic reasoning.`;
+    // 2. Draft your trading context prompt
+    const promptText = `Analyze this trading setup. Pair: ${selectedPair}, Entry: ${entryPrice}, Stop Loss: ${stopLoss}, Take Profit: ${takeProfit}, Direction: ${isLong ? 'Long' : 'Short'}. Provide a brief structural market analysis and final success probability percentage.`;
 
-    // 3. Talk directly to Google AI Studio instead of the broken local backend path
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    // 3. Request logic using Google's secure operational endpoint
+    const endpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({
         contents: [{ parts: [{ text: promptText }] }]
-      });
-    if (!response.ok) throw new Error(`Google AI Studio request failed with status: ${response.status}`);
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Google Gemini API responded with status: ${response.status}`);
+    }
+
     const data = await response.json();
-    const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No reasoning returned from AI.";
+    
+    // Extract text safely from the official JSON response model hierarchy
+    const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No reasoning returned from AI.";
 
     // 4. Populate your UI state with Gemini's response text
     setAiAnalysis(aiText);
