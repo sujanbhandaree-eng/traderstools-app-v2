@@ -3918,7 +3918,7 @@ try {
 
                 <div className="pt-10 border-t border-slate-800">
                   <p className="text-[10px] text-slate-600">
-                    Version 1.2.0 • Data processed locally in browser. No trade data is stored on our servers.
+                    Version 1.2.1 • Data processed locally in browser. No trade data is stored on our servers.
                   </p>
                 </div>
               </div>
