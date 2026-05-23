@@ -45,7 +45,7 @@ import {
   X,
   Plus
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { auth, signInWithGoogle, logout, db } from './lib/firebase';
