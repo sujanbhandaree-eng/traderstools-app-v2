@@ -3204,7 +3204,7 @@ export default function App() {
   setIsAiLoading(true);
 try {
     // 1. Setup your secure API key
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyAFrJQ7SEpAJx96t3gGfV2D4sx2zlmrf-E";
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (window as any).VITE_GEMINI_API_KEY;
 
     // 2. Draft your trading context prompt
     const promptText = `Analyze this trading setup. Pair: ${selectedPair}, Entry: ${entryPrice}, Stop Loss: ${stopLoss}, Take Profit: ${takeProfit}, Direction: ${isLong ? 'Long' : 'Short'}. Provide a brief structural market analysis and final success probability percentage.`;
