@@ -3229,7 +3229,7 @@ try {
     const promptText = `Analyze this trading setup. Pair: ${selectedPair}, Entry: ${entryPrice}, Stop Loss: ${stopLoss}, Take Profit: ${takeProfit}, Direction: ${isLong ? 'Long' : 'Short'}. Provide a brief structural market analysis and final success probability percentage.`;
 
     // 3. Request logic using Google's secure operational endpoint
-    const endpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
     const response = await fetch(endpoint, {
       method: "POST",
