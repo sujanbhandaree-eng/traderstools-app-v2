@@ -1917,7 +1917,7 @@ const AdminPanel = ({
               activeTab === 'ai_tools' ? "bg-emerald-50 text-emerald-600" : "text-slate-500 hover:bg-slate-50"
             )}
           >
-            <Wand2 size={20} /> AI Tools
+            <Zap size={120} /> AI Tools
           </button>
     
           <button 
