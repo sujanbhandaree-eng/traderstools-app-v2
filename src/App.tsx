@@ -23,7 +23,6 @@ import {
   User as UserIcon,
   Mail,
   Zap,
-  Sparkles,
   Lock,
   Users,
   Settings,
