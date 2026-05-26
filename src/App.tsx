@@ -1910,6 +1910,16 @@ const AdminPanel = ({
           >
             <LayoutDashboard size={20} /> Dashboard
           </button>
+          <button
+            onClick={() => setActiveTab('ai_tools')}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all",
+              activeTab === 'ai_tools' ? "bg-emerald-50 text-emerald-600" : "text-slate-500 hover:bg-slate-50"
+            )}
+          >
+            <Sparkles size={20} /> AI Tools
+          </button>
+    
           <button 
             onClick={() => setActiveTab('members')}
             className={cn(
