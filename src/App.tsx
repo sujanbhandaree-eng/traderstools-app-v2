@@ -1970,10 +1970,20 @@ const AdminPanel = ({
         </header>
 
         <div className="p-10 max-w-7xl mx-auto space-y-10">
-          {activeTab === 'dashboard' && (
-            <>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-                <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
+         {activeTab === 'ai_tools' && (
+           <div className="w-full max-w-7xl mx-auto p-4">
+            <iframe 
+              src="https://ais-pre-alncooqj327dvv5zsgyyrq-287115647468.europe-west2.run.app" 
+              className="w-full h-[850px] border-none rounded-2xl shadow-2xl bg-slate-900"
+              allow="clipboard-write"
+              title="SmartTrade Embedded Platform"
+            />
+          </div>
+         )}
+
+        {activeTab === 'dashboard' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start mb-4">
                     <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500">
                       <Users size={24} />
