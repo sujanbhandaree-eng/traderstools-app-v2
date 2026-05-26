@@ -884,7 +884,7 @@ const TradingPlanner = ({
                         </>
                       ) : (
                         <>
-                          <Sparkles size={16} />
+                          <Zap size={16} />
                           Test Success Probability
                           <span className="ml-1 opacity-50 text-[8px] tracking-normal font-mono">(1 Credit)</span>
                         </>
@@ -1181,7 +1181,7 @@ const TradeJournal = ({
                   <div className="flex items-center gap-3">
                     {entry.aiAnalysis && (
                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                         <Sparkles size={12} className="text-blue-400" />
+                         <Zap size={12} className="text-blue-400" />
                          <span className={cn(
                            "text-xs font-bold",
                            entry.aiAnalysis.probability >= 70 ? "text-emerald-400" : entry.aiAnalysis.probability >= 50 ? "text-blue-400" : "text-rose-400"
@@ -2057,7 +2057,7 @@ const AdminPanel = ({
                 <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start mb-4">
                     <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500">
-                      <Sparkles size={24} />
+                      <Zap size={24} />
                     </div>
                     <span className="text-[10px] bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full font-bold">TOTAL</span>
                   </div>
@@ -3543,7 +3543,7 @@ try {
                   <p className="text-slate-500 text-[10px] uppercase tracking-widest font-mono">Member Trade Journal & Risk Manager</p>
                   <div className="h-3 w-px bg-slate-800" />
                   <div className="flex items-center gap-1.5 text-blue-400 font-bold font-mono text-[10px] bg-blue-400/5 px-2 py-0.5 rounded border border-blue-400/10">
-                    <Sparkles size={10} />
+                    <Zap size={10} />
                     AI Credits Used: {aiUsageCount}
                   </div>
                 </div>
@@ -3707,7 +3707,7 @@ try {
           {/* Promotional Section for Guests */}
           <div className="mb-12 bg-blue-600 rounded-3xl p-8 md:p-12 relative overflow-hidden shadow-2xl">
             <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-              <Sparkles size={200} />
+              <Zap size={200} />
             </div>
             <div className="relative z-10 max-w-2xl">
               <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4 leading-tight">
