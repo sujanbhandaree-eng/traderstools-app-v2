@@ -23,6 +23,7 @@ import {
   User as UserIcon,
   Mail,
   Zap,
+  Sparkles,
   Lock,
   Users,
   Settings,
@@ -42,21 +43,44 @@ import {
   Menu,
   Clock,
   X,
-  Plus
+  Plus,
+  Key
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { auth, signInWithGoogle, logout, db } from './lib/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, setDoc, getDoc, getDocs, collection, serverTimestamp, increment, updateDoc, addDoc, query, orderBy, deleteDoc, where, limit } from 'firebase/firestore';
-
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   BarChart, Bar, Cell, PieChart, Pie, Legend
 } from 'recharts';
 
-
+// Proxy calls to Express server to avoid browser HTTP referrer API restrictions
+const ai = {
+  models: {
+    generateContent: async ({ model, contents, config }: any) => {
+      try {
+        const res = await fetch("/api/gemini/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ model, contents, config })
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Server Gemini error! Status: ${res.status}`);
+        }
+        return await res.json();
+      } catch (err: any) {
+        console.error("Proxy generateContent failed:", err);
+        throw err;
+      }
+    }
+  }
+};
 
 // --- Utilities ---
 enum OperationType {
@@ -339,7 +363,9 @@ const TradingPlanner = ({
   searchTerm,
   setSearchTerm,
   credits,
-  trackAssetLookup
+  trackAssetLookup,
+  isSigningIn,
+  handleGoogleSignIn
 }: any) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
@@ -363,6 +389,24 @@ const TradingPlanner = ({
 
   const formatNumber = (val: number, decimals: number = 2) => 
     new Intl.NumberFormat('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(val);
+
+  const formatQty = (val: number, isSpot: boolean) => {
+    if (!val || isNaN(val)) return "0";
+    if (isSpot) {
+      if (val < 0.01) {
+        return new Intl.NumberFormat('en-US', { minimumFractionDigits: 6, maximumFractionDigits: 8 }).format(val);
+      } else if (val < 1) {
+        return new Intl.NumberFormat('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 6 }).format(val);
+      } else {
+        return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(val);
+      }
+    } else {
+      if (val < 0.1) {
+        return new Intl.NumberFormat('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 6 }).format(val);
+      }
+      return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(val);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -559,6 +603,47 @@ const TradingPlanner = ({
                   )}
                 </div>
 
+                {/* Popular Pre-lookup Assets */}
+                <div className="mt-2.5 flex flex-wrap gap-1.5 items-center">
+                  <span className="text-[9px] font-mono text-slate-500 uppercase mr-1">Popular:</span>
+                  {[
+                    { label: "BTC", value: "BTC/USDT" },
+                    { label: "ETH", value: "ETH/USDT" },
+                    { label: "SOL", value: "SOL/USDT" },
+                    { label: "BNB", value: "BNB/USDT" },
+                    { label: "XRP", value: "XRP/USDT" },
+                    { label: "EUR/USD", value: "EUR/USD" },
+                    { label: "GBP/USD", value: "GBP/USD" },
+                    { label: "USD/JPY", value: "USD/JPY" },
+                    { label: "GOLD", value: "GOLD (XAU/USD)" },
+                    { label: "AAPL", value: "AAPL (Apple)" },
+                    { label: "TSLA", value: "TSLA (Tesla)" },
+                    { label: "NVDA", value: "NVDA (Nvidia)" },
+                    { label: "MSFT", value: "MSFT (Microsoft)" },
+                    { label: "AMZN", value: "AMZN (Amazon)" },
+                    { label: "CRUDE", value: "WTI CRUDE" }
+                  ].map(asset => (
+                    <button
+                      key={asset.label}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPair(asset.value);
+                        setSearchTerm(asset.value);
+                        setIsSearchOpen(false);
+                        trackAssetLookup(asset.value);
+                      }}
+                      className={cn(
+                        "px-2 py-0.5 rounded-lg text-[10px] font-mono transition-all border",
+                        selectedPair === asset.value 
+                          ? "bg-blue-500/10 border-blue-500/30 text-blue-400 font-bold" 
+                          : "bg-slate-900/40 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:border-slate-700 hover:bg-slate-800"
+                      )}
+                    >
+                      {asset.label}
+                    </button>
+                  ))}
+                </div>
+
                 {selectedPair && (
                   <motion.div 
                     initial={{ opacity: 0, y: 5 }}
@@ -658,18 +743,40 @@ const TradingPlanner = ({
             )}
           </section>
 
-          <button 
-            onClick={() => {
-              setEntryPrice("");
-              setStopLoss("");
-              setSlPercent("");
-              setTakeProfit("");
-              setTpPercent("");
-            }}
-            className="w-full py-3 px-4 rounded-xl border border-slate-800 text-slate-500 text-xs font-bold uppercase tracking-widest hover:bg-slate-900 hover:text-slate-300 transition-all flex items-center justify-center gap-2"
-          >
-            <RefreshCcw size={14} /> Reset Trade Levels
-          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button 
+              onClick={() => {
+                setEntryPrice("");
+                setStopLoss("");
+                setSlPercent("");
+                setTakeProfit("");
+                setTpPercent("");
+              }}
+              className="py-3 px-4 rounded-xl border border-slate-800 text-slate-500 text-xs font-bold uppercase tracking-widest hover:bg-slate-900 hover:text-slate-300 transition-all flex items-center justify-center gap-2"
+            >
+              <RefreshCcw size={14} /> Reset Levels
+            </button>
+            <button 
+              onClick={saveToJournal}
+              disabled={isSavingJournal || !results || results.isInvalid}
+              className={cn(
+                "py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-lg active:scale-95 disabled:opacity-40 disabled:scale-100 flex items-center justify-center gap-2",
+                isSavingJournal ? "bg-slate-800 text-slate-400" : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/10"
+              )}
+            >
+              {isSavingJournal ? (
+                <>
+                  <RefreshCcw size={14} className="animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <BookOpen size={14} />
+                  Save Setup
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Right Column: Visualization & Results */}
@@ -715,10 +822,10 @@ const TradingPlanner = ({
           <div className="grid sm:grid-cols-3 gap-6">
             <ResultCard 
               label={activeMode === 'spot' ? "Qty (Physical Units)" : "Qty (Contracts/Lots)"} 
-              value={results ? formatNumber(results.positionSizeLots, activeMode === 'spot' ? 2 : 6) : "—"} 
+              value={results ? formatQty(activeMode === 'spot' ? results.positionSizeUnits : results.positionSizeLots, activeMode === 'spot') : "—"} 
               subtitle={activeMode === 'spot' ? "Amount to buy" : `Size (${lotSize} units)`}
               type="highlight"
-              copyValue={results ? formatNumber(results.positionSizeLots, activeMode === 'spot' ? 2 : 6).replace(/,/g, '') : undefined}
+              copyValue={results ? (activeMode === 'spot' ? results.positionSizeUnits : results.positionSizeLots).toFixed(activeMode === 'spot' ? (results.positionSizeUnits < 0.01 ? 8 : 4) : 6).replace(/\.?0+$/, '') : undefined}
             />
             <ResultCard 
               label="Risk/Reward Ratio" 
@@ -841,7 +948,7 @@ const TradingPlanner = ({
           {/* AI Probability Section */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-              <Zap size={16} />
+              <Sparkles size={120} />
             </div>
             
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -861,57 +968,35 @@ const TradingPlanner = ({
                       <Lock size={10} /> Members Only
                     </div>
                     <button 
-                      onClick={() => signInWithGoogle()}
-                      className="flex items-center gap-2 bg-white text-slate-950 px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95 shadow-xl"
+                      onClick={handleGoogleSignIn}
+                      disabled={isSigningIn}
+                      className="flex items-center gap-2 bg-white text-slate-950 px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95 shadow-xl disabled:opacity-50"
                     >
-                      Sign Up to Unlock
+                      {isSigningIn ? 'Signing in...' : 'Sign Up to Unlock'}
                     </button>
                   </div>
                 ) : (
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button 
-                      onClick={runAiAnalysis}
-                      disabled={isAiLoading || !results || results.isInvalid}
-                      className={cn(
-                        "flex items-center gap-2 px-8 py-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-xl active:scale-95 disabled:opacity-50 disabled:scale-100",
-                        isAiLoading ? "bg-slate-800 text-slate-400" : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20"
-                      )}
-                    >
-                      {isAiLoading ? (
-                        <>
-                          <RefreshCcw size={16} className="animate-spin" />
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          <Zap size={16} />
-                          Test Success Probability
-                          <span className="ml-1 opacity-50 text-[8px] tracking-normal font-mono">(1 Credit)</span>
-                        </>
-                      )}
-                    </button>
-
-                    <button 
-                      onClick={saveToJournal}
-                      disabled={isSavingJournal || !results || results.isInvalid}
-                      className={cn(
-                        "flex items-center gap-2 px-8 py-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-xl active:scale-95 disabled:opacity-50 disabled:scale-100",
-                        isSavingJournal ? "bg-slate-800 text-slate-400" : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20"
-                      )}
-                    >
-                      {isSavingJournal ? (
-                        <>
-                          <RefreshCcw size={16} className="animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <BookOpen size={16} />
-                          Save to Journal
-                        </>
-                      )}
-                    </button>
-                  </div>
+                  <button 
+                    onClick={runAiAnalysis}
+                    disabled={isAiLoading || !results || results.isInvalid}
+                    className={cn(
+                      "flex items-center gap-2 px-8 py-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-xl active:scale-95 disabled:opacity-50 disabled:scale-100",
+                      isAiLoading ? "bg-slate-800 text-slate-400" : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20"
+                    )}
+                  >
+                    {isAiLoading ? (
+                      <>
+                        <RefreshCcw size={16} className="animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} />
+                        Test Success Probability
+                        <span className="ml-1 opacity-50 text-[8px] tracking-normal font-mono">(1 Credit)</span>
+                      </>
+                    )}
+                  </button>
                 )}
               </div>
             </div>
@@ -942,6 +1027,47 @@ const TradingPlanner = ({
               </motion.div>
             )}
           </div>
+
+          {/* Bottom Save to Journal Action */}
+          {results && !results.isInvalid && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-r from-emerald-950/20 to-slate-900 border border-emerald-500/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+                  <BookOpen size={20} />
+                </div>
+                <div className="text-left">
+                  <h4 className="text-sm font-bold text-slate-200">Ready with your Trading Plan?</h4>
+                  <p className="text-xs text-slate-400">Lock this calculated trade setup directly into your personal journal.</p>
+                </div>
+              </div>
+              <button
+                onClick={saveToJournal}
+                disabled={isSavingJournal}
+                className={cn(
+                  "w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-lg active:scale-95 disabled:opacity-50 shrink-0",
+                  isSavingJournal 
+                    ? "bg-slate-800 text-slate-400" 
+                    : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20"
+                )}
+              >
+                {isSavingJournal ? (
+                  <>
+                    <RefreshCcw size={14} className="animate-spin" />
+                    Saving Setup...
+                  </>
+                ) : (
+                  <>
+                    <BookOpen size={14} />
+                    Save this on Trade Journal
+                  </>
+                )}
+              </button>
+            </motion.div>
+          )}
         </div>
       </div>
     </div>
@@ -1181,7 +1307,7 @@ const TradeJournal = ({
                   <div className="flex items-center gap-3">
                     {entry.aiAnalysis && (
                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                         <Zap size={12} className="text-blue-400" />
+                         <Sparkles size={12} className="text-blue-400" />
                          <span className={cn(
                            "text-xs font-bold",
                            entry.aiAnalysis.probability >= 70 ? "text-emerald-400" : entry.aiAnalysis.probability >= 50 ? "text-blue-400" : "text-rose-400"
@@ -1216,12 +1342,18 @@ const TradeJournal = ({
 };
 
 
-const LiveSignals = ({ currency, credits, onUseCredit, onNavigateMembership, onApplyScenario }: { 
+const LiveSignals = ({ 
+  currency, 
+  credits, 
+  onUseCredit, 
+  onNavigateMembership, 
+  onApplyScenario
+}: { 
   currency: string; 
   credits: number;
   onUseCredit: () => Promise<boolean>;
   onNavigateMembership: () => void;
-  onApplyScenario: (scenario: any, type: 'long' | 'short', asset: any) => void 
+  onApplyScenario: (scenario: any, type: 'long' | 'short', asset: any) => void;
 }) => {
   const [selectedSymbol, setSelectedSymbol] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1299,7 +1431,9 @@ const LiveSignals = ({ currency, credits, onUseCredit, onNavigateMembership, onA
     setIsLoading(true);
     try {
       const success = await onUseCredit();
-      if (!success) throw new Error("Credit deduction failed");
+      if (!success) {
+        throw new Error("Credit deduction failed");
+      }
 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
@@ -1909,16 +2043,6 @@ const AdminPanel = ({
           >
             <LayoutDashboard size={20} /> Dashboard
           </button>
-          <button
-            onClick={() => setActiveTab('ai_tools')}
-            className={cn(
-              "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all",
-              activeTab === 'ai_tools' ? "bg-emerald-50 text-emerald-600" : "text-slate-500 hover:bg-slate-50"
-            )}
-          >
-            <Zap size={120} /> AI Tools
-          </button>
-    
           <button 
             onClick={() => setActiveTab('members')}
             className={cn(
@@ -1979,20 +2103,10 @@ const AdminPanel = ({
         </header>
 
         <div className="p-10 max-w-7xl mx-auto space-y-10">
-         {activeTab === 'ai_tools' && (
-           <div className="w-full max-w-7xl mx-auto p-4">
-            <iframe 
-              src="https://ais-pre-alncooqj327dvv5zsgyyrq-287115647468.europe-west2.run.app" 
-              className="w-full h-[850px] border-none rounded-2xl shadow-2xl bg-slate-900"
-              allow="clipboard-write"
-              title="SmartTrade Embedded Platform"
-            />
-          </div>
-         )}
-
-        {activeTab === 'dashboard' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
+          {activeTab === 'dashboard' && (
+            <>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start mb-4">
                     <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500">
                       <Users size={24} />
@@ -2057,7 +2171,7 @@ const AdminPanel = ({
                 <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start mb-4">
                     <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500">
-                      <Zap size={24} />
+                      <Sparkles size={24} />
                     </div>
                     <span className="text-[10px] bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full font-bold">TOTAL</span>
                   </div>
@@ -2692,7 +2806,30 @@ const MembershipView = ({ user, onBack, onPurchase }: any) => {
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    if (isSigningIn) return;
+    setIsSigningIn(true);
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      console.error("Sign in failed:", error);
+      const hostUrl = window.location.href;
+      if (error?.code === 'auth/popup-blocked') {
+        alert(`The sign-in popup was blocked by your browser. Since you are previewing inside the Google AI Studio iframe, please open the application in a new browser tab to sign in: ${hostUrl}`);
+      } else if (error?.code === 'auth/cancelled-popup-request') {
+        console.log("Sign-in popup request cancelled or closed.");
+      } else {
+        alert(`Sign-in could not complete inside the iframe. Please open the application in a new browser tab to authenticate: ${hostUrl}\n(Details: ${error?.message || error})`);
+      }
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState<boolean>(false);
+
   const [isAboutOpen, setIsAboutOpen] = useState<boolean>(false);
   const [appView, setAppView] = useState<'user' | 'admin' | 'membership'>('user');
   const [adminActiveTab, setAdminActiveTab] = useState<'dashboard' | 'members' | 'plans' | 'settings'>('dashboard');
@@ -3211,70 +3348,57 @@ export default function App() {
     new Intl.NumberFormat('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(val);
 
   const runAiAnalysis = async () => {
-  const isLong = true;
-  if (!results || results.isInvalid || !user) return;
-  
-  if (credits <= 0) {
-    alert("Insufficient Credits. Please recharge your balance to continue.");
-    setAppView('membership');
-    return;
-  }
-
-  setIsAiLoading(true);
-try {
-    // 1. Setup your secure API key
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (window as any).VITE_GEMINI_API_KEY;
-
-    // 2. Draft your trading context prompt
-    const promptText = `Analyze this trading setup. Pair: ${selectedPair}, Entry: ${entryPrice}, Stop Loss: ${stopLoss}, Take Profit: ${takeProfit}, Direction: ${isLong ? 'Long' : 'Short'}. Provide a brief structural market analysis and final success probability percentage.`;
-
-    // 3. Request logic using Google's secure operational endpoint
-   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    if (!results || results.isInvalid || !user) return;
     
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: promptText }] }]
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Google Gemini API responded with status: ${response.status}`);
+    if (credits <= 0) {
+      alert("Insufficient Credits. Please recharge your balance to continue.");
+      setAppView('membership');
+      return;
     }
-
-    const data = await response.json();
     
-    // Extract text safely from the official JSON response model hierarchy
-    const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No reasoning returned from AI.";
+    setIsAiLoading(true);
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `As a professional trading analyst, evaluate this ${tradeType} setup:
+          Entry: ${entryPrice}
+          Stop Loss: ${stopLoss}
+          Take Profit: ${takeProfit}
+          R:R Ratio: ${results.rrRatio}
+          
+          Provide a success probability (0-100) and brief technical reasoning.
+          Return ONLY valid JSON: {"probability": number, "reasoning": "string"}`,
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+      
+      const data = JSON.parse(response.text || '{}');
+      setAiAnalysis(data);
 
-    // 4. Populate your UI state with Gemini's response text
-    setAiAnalysis(aiText);
-    // 5. Keep your existing working database credit updates untouched!
-    const userRef = doc(db, 'users', user.uid);
-    const today = new Date().toISOString().split('T')[0];
-    const dailyRef = doc(db, 'daily_credits', today);
+      // Increment AI usage counter and decrement credits
+      const userRef = doc(db, 'users', user.uid);
+      const today = new Date().toISOString().split('T')[0];
+      const dailyRef = doc(db, 'daily_credits', today);
 
-    await Promise.all([
-      updateDoc(userRef, {
-        aiUsageCount: increment(1),
-        credits: increment(-1)
-      }),
-      setDoc(dailyRef, { total: increment(1) }, { merge: true })
-    ]);
+      await Promise.all([
+        updateDoc(userRef, { 
+          aiUsageCount: increment(1),
+          credits: increment(-1)
+        }),
+        setDoc(dailyRef, { total: increment(1) }, { merge: true })
+      ]);
+      
+      setCredits(prev => Math.max(0, prev - 1));
 
-    setAiUsageCount(prev => prev + 1);
-    setCredits(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error("AI Analysis failed:", error);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
 
-  } catch (error) {
-    console.error("AI Analysis failed:", error);
-    setAiAnalysis("Failed to load AI analysis. Please try again later.");
-  } finally {
-    setIsAiLoading(false);
-  }
-};
   const saveDefaults = async () => {
     if (!user) return;
     setIsSavingDefaults(true);
@@ -3329,6 +3453,7 @@ try {
     slPercent, setSlPercent, tpPercent, setTpPercent, handleLevelChange,
     trackAssetLookup,
     saveToJournal, isSavingJournal, credits,
+    isSigningIn, handleGoogleSignIn,
     searchTerm: plannerSearchTerm,
     setSearchTerm: setPlannerSearchTerm
   };
@@ -3543,7 +3668,7 @@ try {
                   <p className="text-slate-500 text-[10px] uppercase tracking-widest font-mono">Member Trade Journal & Risk Manager</p>
                   <div className="h-3 w-px bg-slate-800" />
                   <div className="flex items-center gap-1.5 text-blue-400 font-bold font-mono text-[10px] bg-blue-400/5 px-2 py-0.5 rounded border border-blue-400/10">
-                    <Zap size={10} />
+                    <Sparkles size={10} />
                     AI Credits Used: {aiUsageCount}
                   </div>
                 </div>
@@ -3695,11 +3820,12 @@ try {
                 </button>
 
                 <button 
-                  onClick={() => signInWithGoogle()}
-                  className="flex items-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all backdrop-blur-sm shadow-lg active:scale-95 group"
+                  onClick={handleGoogleSignIn}
+                  disabled={isSigningIn}
+                  className="flex items-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all backdrop-blur-sm shadow-lg active:scale-95 group disabled:opacity-50"
                 >
                   <LogIn size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                  Sign In / Sign Up
+                  {isSigningIn ? 'Signing In...' : 'Sign In / Sign Up'}
                 </button>
               </div>
             </header>
@@ -3707,7 +3833,7 @@ try {
           {/* Promotional Section for Guests */}
           <div className="mb-12 bg-blue-600 rounded-3xl p-8 md:p-12 relative overflow-hidden shadow-2xl">
             <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-              <Zap size={200} />
+              <Sparkles size={200} />
             </div>
             <div className="relative z-10 max-w-2xl">
               <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4 leading-tight">
@@ -3718,10 +3844,11 @@ try {
               </p>
               <div className="flex flex-wrap gap-4">
                 <button 
-                  onClick={() => signInWithGoogle()}
-                  className="bg-white text-blue-600 px-8 py-4 rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-blue-50 transition-all shadow-xl active:scale-95"
+                  onClick={handleGoogleSignIn}
+                  disabled={isSigningIn}
+                  className="bg-white text-blue-600 px-8 py-4 rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-blue-50 transition-all shadow-xl active:scale-95 disabled:opacity-50"
                 >
-                  Join Now Free
+                  {isSigningIn ? 'Processing...' : 'Join Now Free'}
                 </button>
                 <div className="flex items-center gap-2 text-blue-200 text-xs font-bold uppercase tracking-widest px-4">
                   <ShieldCheck size={16} /> 100% Secure & Private
@@ -3937,7 +4064,7 @@ try {
 
                 <div className="pt-10 border-t border-slate-800">
                   <p className="text-[10px] text-slate-600">
-                    Version 1.2.1 • Data processed locally in browser. No trade data is stored on our servers.
+                    Version 1.2.0 • Data processed locally in browser. No trade data is stored on our servers.
                   </p>
                 </div>
               </div>
@@ -3945,6 +4072,8 @@ try {
           </motion.div>
         )}
       </AnimatePresence>
+
+
     </div>
   );
 }
