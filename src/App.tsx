@@ -3226,6 +3226,10 @@ try {
     // 1. Setup your secure API key
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (window as any).VITE_GEMINI_API_KEY;
 
+    if (!apiKey || apiKey === 'undefined') {
+      throw new Error("Missing Gemini API Key. Please ensure VITE_GEMINI_API_KEY is set in your GitHub Repository Secrets and redeploy.");
+    }
+
     // 2. Draft your trading context prompt
     const promptText = `Analyze this trading setup. Pair: ${selectedPair}, Entry: ${entryPrice}, Stop Loss: ${stopLoss}, Take Profit: ${takeProfit}, Direction: ${isLong ? 'Long' : 'Short'}. Provide a brief structural market analysis and final success probability percentage.`;
 
