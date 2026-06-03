@@ -38,10 +38,16 @@ service cloud.firestore {
 
     // --- User Validation ---
     function isValidUser(data) {
-      return data.keys().size() <= 20
-        && (!data.keys().hasAny(['uid']) || data.uid == request.auth.uid)
+      return data.keys().hasAll(['uid', 'email']) 
+        && data.keys().size() <= 16
+        && data.uid == request.auth.uid 
+        && data.email.lower() == request.auth.token.email.lower()
+        && (data.displayName == null || (data.displayName is string && data.displayName.size() <= 100))
+        && (data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 1000))
         && (data.aiUsageCount == null || data.aiUsageCount is number)
-        && (data.credits == null || data.credits is number);
+        && (data.credits == null || data.credits is number)
+        && (data.preferredDefaults == null || data.preferredDefaults is map)
+        && (data.referredBy == null || (data.referredBy is string && data.referredBy.size() <= 128));
     }
 
     // --- Journal Validation ---
@@ -70,12 +76,11 @@ service cloud.firestore {
       allow create: if isOwner(userId) 
         && isValidId(userId)
         && isValidUser(incoming())
-        && incoming().keys().hasAll(['uid', 'email'])
         && incoming().createdAt == request.time;
       allow update: if (
         isOwner(userId)
         && isValidUser(incoming())
-        && (!existing().keys().hasAny(['uid']) || incoming().uid == existing().uid)
+        && incoming().uid == existing().uid
         && (
           incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'email', 'aiUsageCount', 'preferredDefaults', 'credits'])
         )
@@ -119,13 +124,29 @@ service cloud.firestore {
     }
 
     // --- Daily Credits ---
+    function isValidDailyCredit(data) {
+      return data.keys().hasAll(['total'])
+        && data.total is number;
+    }
+
     match /daily_credits/{dayId} {
-      allow read, write: if isSignedIn();
+      allow get, list, read: if isAdmin();
+      allow create, update: if isSignedIn() 
+        && isValidDailyCredit(incoming());
     }
 
     // --- Asset Stats ---
+    function isValidAssetStat(data) {
+      return data.keys().hasAll(['name', 'count', 'lastUsed'])
+        && data.name is string && data.name.size() <= 50
+        && data.count is number
+        && (data.lastUsed == request.time || data.lastUsed == null);
+    }
+
     match /asset_stats/{assetId} {
-      allow read, write: if isSignedIn();
+      allow get, list, read: if isAdmin();
+      allow create, update: if isSignedIn() 
+        && isValidAssetStat(incoming());
     }
   }
 }
