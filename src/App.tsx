@@ -3225,9 +3225,14 @@ export default function App() {
 try {
     // 1. Setup your secure API key
     // Using firebase config as fallback since it's already in the repo and user couldn't set secrets
-    const firebaseConfig = await import('../firebase-applet-config.json');
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || firebaseConfig.apiKey || (window as any).VITE_GEMINI_API_KEY;
-
+    const firebaseConfigModule = await import('../firebase-applet-config.json');
+    const fbConfig = firebaseConfigModule.default || firebaseConfigModule;
+    
+    let apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey || apiKey === 'undefined' || apiKey === 'null') {
+      apiKey = fbConfig.apiKey;
+    }
+    
     if (!apiKey || apiKey === 'undefined') {
       throw new Error("Missing Gemini API Key. Please ensure VITE_GEMINI_API_KEY is set in your GitHub Repository Secrets and redeploy.");
     }
