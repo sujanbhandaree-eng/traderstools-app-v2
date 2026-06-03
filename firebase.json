@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 {
   "hosting": {
     "site": "synthetic-keel-408018",
@@ -16,6 +15,3 @@
     ]
   }
 }
-=======
-{"hosting": {"public": "dist", "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]}} 
->>>>>>> Stashed changes
