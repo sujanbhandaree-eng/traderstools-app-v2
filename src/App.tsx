@@ -47,9 +47,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { auth, signInWithGoogle, logout, db, functions } from './lib/firebase';
+import { auth, signInWithGoogle, logout, db } from './lib/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { httpsCallable } from 'firebase/functions';
 import { doc, setDoc, getDoc, getDocs, collection, serverTimestamp, increment, updateDoc, addDoc, query, orderBy, deleteDoc, where, limit } from 'firebase/firestore';
 
 import { 
@@ -3224,19 +3223,37 @@ export default function App() {
 
   setIsAiLoading(true);
 try {
-    // 1. Setup the callable function
-    const analyzeTrade = httpsCallable(functions, 'analyzeTrade');
+    // 1. Setup your secure API key
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (window as any).VITE_GEMINI_API_KEY;
 
-    // 2. Call the secure backend proxy
-    const result = await analyzeTrade({
-      pair: selectedPair,
-      entry: entryPrice,
-      stopLoss: stopLoss,
-      takeProfit: takeProfit,
-      isLong: isLong
+    if (!apiKey || apiKey === 'undefined') {
+      throw new Error("Missing Gemini API Key. Please ensure VITE_GEMINI_API_KEY is set in your GitHub Repository Secrets and redeploy.");
+    }
+
+    // 2. Draft your trading context prompt
+    const promptText = `Analyze this trading setup. Pair: ${selectedPair}, Entry: ${entryPrice}, Stop Loss: ${stopLoss}, Take Profit: ${takeProfit}, Direction: ${isLong ? 'Long' : 'Short'}. Provide a brief structural market analysis and final success probability percentage.`;
+
+    // 3. Request logic using Google's secure operational endpoint
+   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }]
+      })
     });
 
-    const aiText = (result.data as any)?.analysis || "No reasoning returned from AI.";
+    if (!response.ok) {
+      throw new Error(`Google Gemini API responded with status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Extract text safely from the official JSON response model hierarchy
+    const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No reasoning returned from AI.";
 
     // 4. Populate your UI state with Gemini's response text
     setAiAnalysis(aiText);
