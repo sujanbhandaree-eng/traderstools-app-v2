@@ -32,3 +32,16 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNTHETIC_KEEL_408018 }}'
           projectId: synthetic-keel-408018
           channelId: live
+
+      - name: Authenticate Google Cloud for Functions
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SYNTHETIC_KEEL_408018 }}'
+          
+      - name: Deploy Firebase Functions
+        run: |
+          cd functions
+          npm install
+          echo "GEMINI_API_KEY=${{ secrets.VITE_GEMINI_API_KEY }}" > .env
+          npm install -g firebase-tools
+          firebase deploy --only functions --project synthetic-keel-408018
